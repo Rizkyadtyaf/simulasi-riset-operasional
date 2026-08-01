@@ -136,7 +136,8 @@ Semua contoh kasus sudah diverifikasi sesuai materi:
 
 ## 👨‍💻 Dibuat untuk
 
+Nama : Lidan Wisnu Saputra <br>
 Tugas Mata Kuliah **Riset Operasional**  
 Program Studi Teknik Informatika  
 Universitas Komputer Indonesia <br>
-**Nama : Lidan Wisnu Saputra**
+Nama : Lidan Wisnu Saputra
