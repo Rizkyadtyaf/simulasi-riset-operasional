@@ -20,15 +20,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS Custom - HANYA ubah lebar SAAT SIDEBAR TERBUKA
 st.markdown("""
 <style>
-    /* Hanya ubah lebar kalau sidebar terbuka (aria-expanded="true") */
     section[data-testid="stSidebar"][aria-expanded="true"] {
         min-width: 380px !important;
         max-width: 380px !important;
     }
-    
     div[data-testid="stNumberInput"] input {
         text-align: center;
         font-weight: 600;
@@ -55,10 +52,108 @@ st.markdown("""
 
 
 # ============================================================
+# CONTOH KASUS
+# ============================================================
+CONTOH_KASUS = {
+    "-- Pilih contoh kasus --": None,
+    "Wyndor Glass Co.": {
+        'jenis': 'Maksimasi', 'c1': 3, 'c2': 5,
+        'kendala': [
+            {'a1': 1, 'a2': 0, 'op': '<=', 'b': 4},
+            {'a1': 0, 'a2': 2, 'op': '<=', 'b': 12},
+            {'a1': 3, 'a2': 2, 'op': '<=', 'b': 18},
+        ]
+    },
+    "PT Sayang Anak": {
+        'jenis': 'Maksimasi', 'c1': 3, 'c2': 2,
+        'kendala': [
+            {'a1': 2, 'a2': 1, 'op': '<=', 'b': 100},
+            {'a1': 1, 'a2': 1, 'op': '<=', 'b': 80},
+            {'a1': 1, 'a2': 0, 'op': '<=', 'b': 40},
+        ]
+    },
+    "Petani (Tembakau & Kedelai)": {
+        'jenis': 'Maksimasi', 'c1': 75000, 'c2': 25000,
+        'kendala': [
+            {'a1': 1, 'a2': 1, 'op': '<=', 'b': 150},
+            {'a1': 100, 'a2': 200, 'op': '<=', 'b': 16000},
+            {'a1': 1, 'a2': 0, 'op': '>=', 'b': 20},
+        ]
+    },
+    "PT Auto Indah (Promosi TV)": {
+        'jenis': 'Minimasi', 'c1': 10, 'c2': 30,
+        'kendala': [
+            {'a1': 10, 'a2': 6, 'op': '>=', 'b': 40},
+            {'a1': 5, 'a2': 18, 'op': '>=', 'b': 35},
+        ]
+    },
+}
+
+
+# ============================================================
+# INIT SESSION STATE (jalan sekali pas app pertama load)
+# ============================================================
+def init_session_state():
+    """Set default values ke session_state kalau belum ada."""
+    defaults = {
+        'jenis': 'Maksimasi',
+        'c1': 3.0,
+        'c2': 5.0,
+        'jumlah_kendala': 3,
+        'nama_kasus_custom': '',
+    }
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
+    
+    # Default 3 kendala
+    default_kendala = [
+        {'a1': 1.0, 'a2': 0.0, 'op': '≤', 'b': 4.0},
+        {'a1': 0.0, 'a2': 2.0, 'op': '≤', 'b': 12.0},
+        {'a1': 3.0, 'a2': 2.0, 'op': '≤', 'b': 18.0},
+    ]
+    for i, k in enumerate(default_kendala):
+        if f'a1_{i}' not in st.session_state:
+            st.session_state[f'a1_{i}'] = k['a1']
+        if f'a2_{i}' not in st.session_state:
+            st.session_state[f'a2_{i}'] = k['a2']
+        if f'op_{i}' not in st.session_state:
+            st.session_state[f'op_{i}'] = k['op']
+        if f'b_{i}' not in st.session_state:
+            st.session_state[f'b_{i}'] = k['b']
+
+
+# ============================================================
+# CALLBACK: Reset semua field saat dropdown contoh kasus berubah
+# ============================================================
+def load_contoh_kasus():
+    """Callback jalan SEBELUM widget di-render."""
+    pilihan = st.session_state.get('pilihan_contoh', '-- Pilih contoh kasus --')
+    
+    if pilihan == '-- Pilih contoh kasus --':
+        return
+    
+    data = CONTOH_KASUS[pilihan]
+    if data is None:
+        return
+    
+    st.session_state['jenis'] = data['jenis']
+    st.session_state['c1'] = float(data['c1'])
+    st.session_state['c2'] = float(data['c2'])
+    st.session_state['jumlah_kendala'] = len(data['kendala'])
+    
+    op_map_reverse = {'<=': '≤', '>=': '≥', '=': '='}
+    for i, k in enumerate(data['kendala']):
+        st.session_state[f'a1_{i}'] = float(k['a1'])
+        st.session_state[f'a2_{i}'] = float(k['a2'])
+        st.session_state[f'b_{i}'] = float(k['b'])
+        st.session_state[f'op_{i}'] = op_map_reverse[k['op']]
+
+
+# ============================================================
 # VALIDASI KENDALA
 # ============================================================
 def validasi_kendala(kendala_input):
-    """Cek apakah ada kendala yang tidak valid (koef X1 dan X2 sama-sama 0)."""
     kendala_invalid = []
     for i, k in enumerate(kendala_input):
         if abs(k['a1']) < 1e-10 and abs(k['a2']) < 1e-10:
@@ -139,7 +234,7 @@ def selesaikan_program_linier(jenis_optimasi, c1, c2, kendala_input):
 
 
 # ============================================================
-# VISUALISASI - GRAFIK (FIXED: cek pembagian nol)
+# VISUALISASI - GRAFIK
 # ============================================================
 def gambar_grafik(hasil, c1, c2, kendala_input, nama_kasus=""):
     fig, ax = plt.subplots(figsize=(10, 7))
@@ -154,7 +249,6 @@ def gambar_grafik(hasil, c1, c2, kendala_input, nama_kasus=""):
     x_range = np.linspace(0, max_x, 500)
     warna = ['#e53e3e', '#3182ce', '#805ad5', '#d69e2e', '#319795', '#dd6b20', '#9f7aea']
 
-    # Feasible region
     X, Y = np.meshgrid(np.linspace(0, max_x, 300), np.linspace(0, max_y, 300))
     fisibel = np.ones_like(X, dtype=bool)
     for k in kendala_input + [{'a1': 1, 'a2': 0, 'op': '>=', 'b': 0},
@@ -170,23 +264,20 @@ def gambar_grafik(hasil, c1, c2, kendala_input, nama_kasus=""):
     ax.contourf(X, Y, fisibel.astype(int), levels=[0.5, 1.5],
                 colors=['#48bb78'], alpha=0.25)
 
-    # ===== FIXED: Gambar garis kendala dengan pengecekan pembagi nol =====
     for i, k in enumerate(kendala_input):
         label = f"{k['a1']:g}X₁ + {k['a2']:g}X₂ {k['op']} {k['b']:g}"
         c = warna[i % len(warna)]
         
-        # Skip kendala tidak valid (koef X1 dan X2 dua-duanya nol)
         if abs(k['a1']) < 1e-10 and abs(k['a2']) < 1e-10:
             continue
         
-        if abs(k['a2']) > 1e-10:  # a2 tidak nol → garis biasa
+        if abs(k['a2']) > 1e-10:
             y_vals = (k['b'] - k['a1'] * x_range) / k['a2']
             ax.plot(x_range, y_vals, color=c, linewidth=2.5, label=label)
-        elif abs(k['a1']) > 1e-10:  # a2 nol tapi a1 tidak → garis vertikal
+        elif abs(k['a1']) > 1e-10:
             x_vert = k['b'] / k['a1']
             ax.axvline(x=x_vert, color=c, linewidth=2.5, label=label)
 
-    # Titik ekstrim
     for i, t in enumerate(hasil['titik_ekstrim']):
         is_optimal = (t == hasil['optimal'])
         color = '#e53e3e' if is_optimal else '#2a5298'
@@ -226,124 +317,98 @@ def gambar_grafik(hasil, c1, c2, kendala_input, nama_kasus=""):
 
 
 # ============================================================
-# CONTOH KASUS
-# ============================================================
-CONTOH_KASUS = {
-    "-- Pilih contoh kasus --": None,
-    "Wyndor Glass Co.": {
-        'jenis': 'Maksimasi', 'c1': 3, 'c2': 5,
-        'kendala': [
-            {'a1': 1, 'a2': 0, 'op': '<=', 'b': 4},
-            {'a1': 0, 'a2': 2, 'op': '<=', 'b': 12},
-            {'a1': 3, 'a2': 2, 'op': '<=', 'b': 18},
-        ]
-    },
-    "PT Sayang Anak": {
-        'jenis': 'Maksimasi', 'c1': 3, 'c2': 2,
-        'kendala': [
-            {'a1': 2, 'a2': 1, 'op': '<=', 'b': 100},
-            {'a1': 1, 'a2': 1, 'op': '<=', 'b': 80},
-            {'a1': 1, 'a2': 0, 'op': '<=', 'b': 40},
-        ]
-    },
-    "Petani (Tembakau & Kedelai)": {
-        'jenis': 'Maksimasi', 'c1': 75000, 'c2': 25000,
-        'kendala': [
-            {'a1': 1, 'a2': 1, 'op': '<=', 'b': 150},
-            {'a1': 100, 'a2': 200, 'op': '<=', 'b': 16000},
-            {'a1': 1, 'a2': 0, 'op': '>=', 'b': 20},
-        ]
-    },
-    "PT Auto Indah (Promosi TV)": {
-        'jenis': 'Minimasi', 'c1': 10, 'c2': 30,
-        'kendala': [
-            {'a1': 10, 'a2': 6, 'op': '>=', 'b': 40},
-            {'a1': 5, 'a2': 18, 'op': '>=', 'b': 35},
-        ]
-    },
-}
-
-
-# ============================================================
 # UI STREAMLIT
 # ============================================================
 def main():
+    # Init session state pertama kali
+    init_session_state()
+    
     col_h1, col_h2 = st.columns([1, 5])
-    with col_h1:
-        st.markdown("# 📊")
+
     with col_h2:
         st.markdown("# Simulasi Optimasi Program Linier")
         st.caption("**Metode Grafis (Geometris)** — Mata Kuliah Riset Operasional")
     st.markdown("---")
 
-    # ========== SIDEBAR ==========
     with st.sidebar:
-        st.markdown("## ⚙️ Input Masalah")
+        st.markdown("## Input Masalah")
         
-        # Contoh Kasus
-        st.markdown("#### 📚 Contoh Kasus")
+        st.markdown("#### Contoh Kasus")
+        # Widget pakai KEY doang, tanpa value/index (biar gak warning)
         pilihan_contoh = st.selectbox(
             "Pilih contoh:",
             list(CONTOH_KASUS.keys()),
+            key='pilihan_contoh',
+            on_change=load_contoh_kasus,
             label_visibility="collapsed"
         )
         
-        # Kolom Nama Kasus (cuma muncul kalau pilih dropdown kosong)
         nama_kasus = ""
         if pilihan_contoh == "-- Pilih contoh kasus --":
             nama_kasus = st.text_input(
-                "✏️ Nama Kasus Kamu:",
-                value=st.session_state.get('nama_kasus_custom', ''),
-                placeholder="Contoh: Kantin Bu Sinta",
-                help="Isi nama kasus buatanmu di sini"
+                "Nama Kasus Kamu:",
+                placeholder="Contoh: Kantin Lidan",
+                help="Isi nama kasus buatanmu di sini",
+                key='nama_kasus_custom'
             )
-            st.session_state['nama_kasus_custom'] = nama_kasus
         else:
             nama_kasus = pilihan_contoh
-            if CONTOH_KASUS[pilihan_contoh]:
-                data = CONTOH_KASUS[pilihan_contoh]
-                st.session_state['jenis'] = data['jenis']
-                st.session_state['c1'] = float(data['c1'])
-                st.session_state['c2'] = float(data['c2'])
-                st.session_state['kendala'] = data['kendala'].copy()
-                st.session_state['jumlah_kendala'] = len(data['kendala'])
 
         st.markdown("---")
 
-        # Fungsi Tujuan
-        st.markdown("#### 🎯 Fungsi Tujuan")
+        # Fungsi Tujuan — cuma pake key, tanpa value/index
+        st.markdown("#### Fungsi Tujuan")
+        
         jenis = st.radio(
             "Jenis Optimasi:",
             ["Maksimasi", "Minimasi"],
             horizontal=True,
-            index=0 if st.session_state.get('jenis', 'Maksimasi') == 'Maksimasi' else 1
+            key='jenis'
         )
 
         col1, col2 = st.columns(2)
         with col1:
-            c1 = st.number_input("Koef. X₁", value=st.session_state.get('c1', 3.0), step=1.0, format="%.2f")
+            c1 = st.number_input(
+                "Koef. X₁", 
+                step=1.0, 
+                format="%.2f",
+                key='c1'
+            )
         with col2:
-            c2 = st.number_input("Koef. X₂", value=st.session_state.get('c2', 5.0), step=1.0, format="%.2f")
+            c2 = st.number_input(
+                "Koef. X₂", 
+                step=1.0, 
+                format="%.2f",
+                key='c2'
+            )
 
         st.info(f"**Z = {c1:g}X₁ + {c2:g}X₂**")
 
         st.markdown("---")
 
         # Fungsi Kendala
-        st.markdown("#### ⚖️ Fungsi Kendala")
+        st.markdown("#### Fungsi Kendala")
         jumlah_kendala = st.number_input(
             "Jumlah Kendala:",
             min_value=1, max_value=8,
-            value=st.session_state.get('jumlah_kendala', 3),
-            step=1
+            step=1,
+            key='jumlah_kendala'
         )
 
+        # Pastikan session_state ada untuk semua kendala yg diperlukan
+        for i in range(jumlah_kendala):
+            if f'a1_{i}' not in st.session_state:
+                st.session_state[f'a1_{i}'] = 1.0
+            if f'a2_{i}' not in st.session_state:
+                st.session_state[f'a2_{i}'] = 1.0
+            if f'op_{i}' not in st.session_state:
+                st.session_state[f'op_{i}'] = '≤'
+            if f'b_{i}' not in st.session_state:
+                st.session_state[f'b_{i}'] = 10.0
+
         kendala_input = []
-        kendala_default = st.session_state.get('kendala', [])
         
         for i in range(jumlah_kendala):
-            default = kendala_default[i] if i < len(kendala_default) else {'a1': 1, 'a2': 1, 'op': '<=', 'b': 10}
-            
             with st.container():
                 st.markdown(f"**Kendala {i+1}**")
                 
@@ -351,7 +416,6 @@ def main():
                 with col_a:
                     a1 = st.number_input(
                         f"Koef X₁",
-                        value=float(default['a1']),
                         step=1.0,
                         key=f"a1_{i}",
                         format="%.2f"
@@ -359,7 +423,6 @@ def main():
                 with col_b:
                     a2 = st.number_input(
                         f"Koef X₂",
-                        value=float(default['a2']),
                         step=1.0,
                         key=f"a2_{i}",
                         format="%.2f"
@@ -367,24 +430,21 @@ def main():
                 
                 col_c, col_d = st.columns([1, 1])
                 with col_c:
-                    op = st.selectbox(
+                    op_display = st.selectbox(
                         "Operator",
                         ["≤", "≥", "="],
-                        index=["<=", ">=", "="].index(default['op']),
                         key=f"op_{i}"
                     )
                     op_map = {"≤": "<=", "≥": ">=", "=": "="}
-                    op = op_map[op]
+                    op = op_map[op_display]
                 with col_d:
                     b = st.number_input(
                         "Nilai (RHS)",
-                        value=float(default['b']),
                         step=1.0,
                         key=f"b_{i}",
                         format="%.2f"
                     )
                 
-                # ===== WARNING kalau Koef X1 dan X2 dua-duanya nol =====
                 if abs(a1) < 1e-10 and abs(a2) < 1e-10:
                     st.warning(f"⚠️ Kendala {i+1} tidak valid! Koef X₁ dan X₂ tidak boleh dua-duanya 0.")
                 else:
@@ -404,7 +464,6 @@ def main():
 
     # ========== MAIN AREA ==========
     if hitung:
-        # ===== VALIDASI: cek kendala invalid dulu =====
         kendala_invalid = validasi_kendala(kendala_input)
         if kendala_invalid:
             st.error(f"""
@@ -424,12 +483,10 @@ def main():
             st.error("❌ **Tidak ada solusi fisibel!** Kendala saling bertentangan.")
             return
 
-        # Judul kasus
         if nama_kasus:
             st.markdown(f"## 📌 Kasus: **{nama_kasus}**")
             st.markdown("---")
 
-        # Ringkasan Masalah
         st.markdown("### 📝 Formulasi Masalah")
         col_a, col_b = st.columns([1, 1])
         with col_a:
@@ -449,14 +506,12 @@ def main():
 
         st.markdown("---")
 
-        # Grafik
         st.markdown("### 📈 Grafik Feasible Region")
         fig = gambar_grafik(hasil, c1, c2, kendala_input, nama_kasus)
         st.pyplot(fig)
 
         st.markdown("---")
 
-        # Tabel Titik Ekstrim
         st.markdown("### 📋 Tabel Titik-Titik Ekstrim")
         df_data = []
         for i, t in enumerate(hasil['titik_ekstrim']):
@@ -473,7 +528,6 @@ def main():
 
         st.markdown("---")
 
-        # Solusi Optimal
         st.markdown(f"### ✅ Solusi Optimal ({jenis})")
         opt = hasil['optimal']
         col1, col2, col3 = st.columns(3)
