@@ -138,5 +138,5 @@ Semua contoh kasus sudah diverifikasi sesuai materi:
 
 Tugas Mata Kuliah **Riset Operasional**  
 Program Studi Teknik Informatika  
-Universitas Komputer Indonesia
+Universitas Komputer Indonesia <br>
 **Nama : Lidan Wisnu Saputra**
